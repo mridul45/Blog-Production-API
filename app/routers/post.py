@@ -29,7 +29,7 @@ def create_posts(request: schemas.PostCreate,db: Session = Depends(get_db),curre
     # conn.commit()
     # new_post = cursor.fetchone()
     # print(current_user.email)
-    
+
     new_post = models.Post(**request.dict())
     db.add(new_post)
     db.commit()
