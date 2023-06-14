@@ -30,7 +30,7 @@ def create_posts(request: schemas.PostCreate,db: Session = Depends(get_db),curre
     # new_post = cursor.fetchone()
     # print(current_user.email)
 
-    new_post = models.Post(**request.dict())
+    new_post = models.Post(owner_id=current_user.id,**request.dict())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -38,7 +38,7 @@ def create_posts(request: schemas.PostCreate,db: Session = Depends(get_db),curre
 
 
 
-@router.get('/posts/{id}',response_model=schemas.Post)
+@router.get('/{id}',response_model=schemas.Post)
 def get_post(id: int,response: Response,db: Session = Depends(get_db),current_user:int = Depends(auth2.get_current_user)):
 
     # cursor.execute(""" SELECT * FROM posts WHERE id = %s """,(str(id)))
@@ -60,11 +60,16 @@ def delete_post(id:int,db: Session = Depends(get_db),current_user:int = Depends(
     # deleted_post = cursor.fetchone()
     # conn.commit()
 
-    post = db.query(models.Post).filter(models.Post.id == id)
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"The index is not found")
     
-    post.delete(synchronize_session=False)
+
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=f"You are unauthorised")
+    
+    post_query.delete(synchronize_session=False)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -81,6 +86,9 @@ def update_post(id:int,updated_post:schemas.PostCreate,db: Session = Depends(get
     post = post_query.first()
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"The index is not found")
+    
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=f"You are unauthorised")
     
     post_query.update(updated_post.dict(),synchronize_session=False)
     db.commit()
