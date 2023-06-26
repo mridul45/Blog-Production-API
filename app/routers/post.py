@@ -3,6 +3,8 @@ from .. import models,schemas,auth2
 from sqlalchemy.orm import Session
 from fastapi import FastAPI,Response,status,HTTPException,Depends,APIRouter
 from ..database import get_db
+from sqlalchemy import func
+from fastapi.encoders import jsonable_encoder
 
 
 router = APIRouter(
@@ -11,13 +13,13 @@ router = APIRouter(
 )
 
 
-@router.get('/',response_model=List[schemas.Post])
+@router.get('/',response_model=List[schemas.PostOut])
 def get_posts(
 
     db: Session = Depends(get_db),
-    current_user: int = Depends(auth2.get_current_user),
+    # current_user: int = Depends(auth2.get_current_user),
     limit:int = 10,
-    search: Optional[str] = ""
+    search: Optional[str] = "",
 
 ):
 
@@ -25,7 +27,10 @@ def get_posts(
     # posts = cursor.fetchall()
     # print(posts)
 
-    posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).all()
+    # posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).all()
+    posts = db.query(models.Post,func.count(models.Vote.post_id).label("votes")).join(models.Vote,models.Vote.post_id == models.Post.id,isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(search)).limit(limit).all()
+
+    # print(results)
     return posts
 
 
@@ -45,13 +50,14 @@ def create_posts(request: schemas.PostCreate,db: Session = Depends(get_db),curre
 
 
 
-@router.get('/{id}',response_model=schemas.Post)
+@router.get('/{id}',response_model=schemas.PostOut)
 def get_post(id: int,response: Response,db: Session = Depends(get_db),current_user:int = Depends(auth2.get_current_user)):
 
     # cursor.execute(""" SELECT * FROM posts WHERE id = %s """,(str(id)))
     # post = cursor.fetchone()
 
-    post = db.query(models.Post).filter(models.Post.id == id).first()
+    # post = db.query(models.Post).filter(models.Post.id == id).first()
+    post = db.query(models.Post,func.count(models.Vote.post_id).label("votes")).join(models.Vote,models.Vote.post_id == models.Post.id,isouter=True).group_by(models.Post.id).filter(models.Post.id == id).first()
     if not post:
         # response.status_code = status.HTTP_404_NOT_FOUND
         # return {"message": "Post not found"}  ---> One solution
